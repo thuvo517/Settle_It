@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..algorithms import get_algorithm
@@ -185,6 +186,11 @@ class RoomService:
             self.db.refresh(existing)
             return existing
 
+        # Two concurrent requests (double-click, client retry) can both pass
+        # the `existing` check above before either commits. The DB-level
+        # unique constraint on (room_id, user_id, option_id, round_number)
+        # guarantees only one insert wins; the loser falls back to updating
+        # the row the winner just created instead of raising to the caller.
         vote = Vote(
             room_id=room.id,
             user_id=user.id,
@@ -194,7 +200,28 @@ class RoomService:
             is_dealbreaker=is_dealbreaker,
         )
         self.db.add(vote)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            winner = (
+                self.db.query(Vote)
+                .filter(
+                    Vote.room_id == room.id,
+                    Vote.user_id == user.id,
+                    Vote.option_id == option_id,
+                    Vote.round_number == 0,
+                )
+                .first()
+            )
+            if not winner:
+                # Constraint violation for some other reason - re-raise.
+                raise
+            winner.kind = kind
+            winner.is_dealbreaker = is_dealbreaker
+            self.db.commit()
+            self.db.refresh(winner)
+            return winner
         self.db.refresh(vote)
         return vote
 

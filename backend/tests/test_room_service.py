@@ -1,6 +1,10 @@
+from unittest.mock import patch
+
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
+from app.models import Vote
 from app.state_machine import Phase
 
 
@@ -74,6 +78,68 @@ def test_vote_updates_when_recast(svc):
     assert v1.id == v2.id
     assert v2.kind == "keep"
     assert v2.is_dealbreaker is True
+
+
+def test_duplicate_vote_row_rejected_at_db_level(svc, db):
+    room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
+    svc.transition(room, Phase.SUBMISSION)
+    a = svc.add_option(room, alice, "A")
+    svc.transition(room, Phase.VOTING)
+    db.add(Vote(room_id=room.id, user_id=alice.id, option_id=a.id, round_number=0, kind="eliminate"))
+    db.commit()
+    db.add(Vote(room_id=room.id, user_id=alice.id, option_id=a.id, round_number=0, kind="keep"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
+def test_cast_vote_survives_concurrent_duplicate_insert(svc, db):
+    """Simulates two requests racing past the "does a vote already exist"
+    check before either commits. The DB unique constraint means only one
+    INSERT can win; cast_vote must catch the resulting IntegrityError and
+    fall back to updating the row the winner created, instead of raising
+    or leaving a duplicate."""
+    room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
+    svc.transition(room, Phase.SUBMISSION)
+    a = svc.add_option(room, alice, "A")
+    svc.transition(room, Phase.VOTING)
+
+    real_query = db.query
+    state = {"checked": False}
+
+    class EmptyQuery:
+        def filter(self, *a, **kw):
+            return self
+
+        def first(self):
+            return None
+
+    def fake_query(model, *args, **kwargs):
+        if model is Vote and not state["checked"]:
+            state["checked"] = True
+            # Another "request" sneaks in and commits its vote first, right
+            # after our existence check would have run.
+            db.add(
+                Vote(
+                    room_id=room.id,
+                    user_id=alice.id,
+                    option_id=a.id,
+                    round_number=0,
+                    kind="eliminate",
+                    is_dealbreaker=False,
+                )
+            )
+            db.commit()
+            return EmptyQuery()
+        return real_query(model, *args, **kwargs)
+
+    with patch.object(db, "query", side_effect=fake_query):
+        result = svc.cast_vote(room, alice, a.id, "keep", True)
+
+    assert result.kind == "keep"
+    assert result.is_dealbreaker is True
+    rows = db.query(Vote).filter(Vote.room_id == room.id, Vote.option_id == a.id).all()
+    assert len(rows) == 1
 
 
 def test_resolve_picks_winner(svc):
