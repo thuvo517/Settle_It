@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: settleit
+      POSTGRES_USER: settleit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-settleit}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U settleit -d settleit"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [settleit]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://settleit:${POSTGRES_PASSWORD:-settleit}@db:5432/settleit
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-prod}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks: [settleit]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    networks: [settleit]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks: [settleit]
+
+networks:
+  settleit:
+
+volumes:
+  pgdata:

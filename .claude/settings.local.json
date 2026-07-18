@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -m pytest -q)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(.venv/bin/python -c \"from app.main import app; print\\('ok', len\\(app.routes\\), 'routes'\\)\")",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Bash(.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000)",
+      "Bash(echo \"backend pid=$!\")",
+      "Bash(echo \"frontend pid=$!\")",
+      "Bash(curl -fsS http://127.0.0.1:8000/api/health)",
+      "Bash(curl -fsSI http://127.0.0.1:5173/)",
+      "Bash(pkill -f \"uvicorn app.main:app\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(lsof -iTCP:8000 -sTCP:LISTEN)",
+      "Bash(lsof -iTCP:5173 -sTCP:LISTEN)"
+    ]
+  }
+}
