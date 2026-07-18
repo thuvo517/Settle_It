@@ -58,6 +58,20 @@ def test_option_limit_per_player(svc):
     assert exc.value.status_code == 409
 
 
+def test_cannot_start_below_min_players(svc, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "min_players", 2)
+    room, _ = svc.create_room("Dinner", "iterative_veto", "Alice")
+    with pytest.raises(HTTPException) as exc:
+        svc.transition(room, Phase.SUBMISSION)
+    assert exc.value.status_code == 409
+
+    svc.join_room(room.code, "Bob")
+    svc.transition(room, Phase.SUBMISSION)
+    assert room.phase == Phase.SUBMISSION.value
+
+
 def test_cannot_vote_in_submission_phase(svc):
     room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
     svc.transition(room, Phase.SUBMISSION)

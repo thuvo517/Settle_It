@@ -78,6 +78,13 @@ class RoomService:
 
     # ---- Transitions ----
     def transition(self, room: Room, target: Phase) -> Room:
+        if target == Phase.SUBMISSION and room.phase == Phase.LOBBY.value:
+            num_players = self.db.query(User).filter(User.room_id == room.id).count()
+            if num_players < settings.min_players:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Need at least {settings.min_players} players to start",
+                )
         fsm = RoomFSM.from_str(room.phase)
         fsm.transition(target)
         room.phase = fsm.phase.value

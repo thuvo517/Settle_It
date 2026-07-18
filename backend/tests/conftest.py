@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+# Most tests drive a room with a single player; keep the min-player gate out
+# of their way. Tests for the gate itself override settings.min_players.
+os.environ.setdefault("MIN_PLAYERS", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
