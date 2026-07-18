@@ -1,34 +1,33 @@
 # SettleIt
 
-> Real-time group decision making. Create a room, submit options, vote, and let
-> one of three algorithms settle it — synchronized across every device over
-> WebSockets.
+An app for groups that can't decide where to eat. Everyone joins a room,
+throws in options, votes, and a voting algorithm picks the winner. State
+syncs live over WebSockets so everyone sees the same thing.
 
-![stack](https://img.shields.io/badge/stack-FastAPI%20%C2%B7%20React%20%C2%B7%20Postgres%20%C2%B7%20Nginx%20%C2%B7%20Docker-7c5cff)
+Built with FastAPI, React, and Postgres. Runs on Docker behind Nginx.
 
-## Highlights
+## How it works
 
-- **3 voting algorithms** that share a common `Algorithm` interface:
-  - `iterative_veto` — majority-eliminate with low-keep fallback; deterministic.
-  - `bracket` — single-elimination, keep-vote seeded, bye handling.
-  - `weighted_random` — vote-modulated weights, seeded RNG for determinism.
-- **Finite state machine** drives room lifecycle through 4 phases:
-  `lobby → submission → voting → results` with strict illegal-transition guards.
-- **Session-token auth** — opaque random tokens scoped to a single user in a
-  single room; accepted via `Authorization: Bearer` or `?token=` for WebSocket.
-- **Fuzzy duplicate detection** — RapidFuzz `token_set_ratio` against
-  normalized text rejects near-duplicate option submissions.
-- **Dealbreaker logic** — any single "⛔ dealbreaker" vote removes an option,
-  with a safety fallback so the algorithm always produces a winner.
-- **Real-time sync** — every state mutation rebroadcasts a full room snapshot
-  to every connected client via a room-scoped `ConnectionManager`.
-- **Deadline watcher** — async background task auto-advances phases when their
-  deadline elapses, so sessions move even if the host goes AFK.
-- **55 passing unit tests** covering algorithms, FSM, fuzzy, dealbreaker,
-  auth, and the service layer edge cases.
-- **One-command deploy**: `docker compose up --build`. Nginx reverse-proxies
-  the React SPA, the FastAPI backend, and the WebSocket upgrade path, with
-  health checks wired into every service.
+A room moves through four phases: lobby, submission, voting, results. The
+host controls the transitions, and a background task auto-advances a phase
+if its deadline passes so a room doesn't stall when the host walks away.
+
+There are three ways to settle a vote, picked when the room is created:
+
+- `iterative_veto`: options get eliminated round by round. A majority of
+  eliminate votes kills an option outright, otherwise the least-kept one goes.
+- `bracket`: single elimination, seeded by keep votes.
+- `weighted_random`: keep votes boost an option's odds, eliminate votes
+  shrink them, then a seeded RNG draws the winner.
+
+Anyone can mark an option as a dealbreaker, which removes it no matter how
+the rest of the room voted (with a fallback so you can't dealbreaker your
+way to zero options). Near-duplicate submissions ("pizza palace" vs
+"Pizza Palace!!") get rejected with fuzzy matching.
+
+Auth is simple: joining a room gets you a random session token that's only
+valid for that room. No accounts. Every state change pushes a fresh room
+snapshot to all connected clients over the WebSocket.
 
 ## Quick start
 
@@ -95,7 +94,7 @@ backend/
     utils/fuzzy.py         Option dedup
     utils/dealbreaker.py   Dealbreaker sweep
     websockets/manager.py  Room-scoped broadcast manager
-  tests/                   55 unit tests
+  tests/                   unit tests
   Dockerfile
 frontend/
   src/
