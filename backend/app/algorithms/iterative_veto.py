@@ -105,11 +105,7 @@ class IterativeVeto(Algorithm):
             else:
                 keep_scores: Dict[int, int] = {oid: cumulative_keep[oid] for oid in live_set}
                 lowest = min(keep_scores.values())
-                candidates = sorted(oid for oid, s in keep_scores.items() if s == lowest)
-                if len(candidates) >= len(live_set):
-                    victim = candidates[0]
-                else:
-                    victim = candidates[0]
+                victim = min(oid for oid, s in keep_scores.items() if s == lowest)
                 eliminated_order.append(victim)
                 live_set.discard(victim)
                 trace.append(f"round {rnum}: low-keep-eliminated {victim}")
