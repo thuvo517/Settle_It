@@ -180,6 +180,38 @@ def test_reset_clears_state(svc):
     assert len(room.options) == 0
 
 
+def test_leave_room_deletes_room_when_last_user(svc, db):
+    from app.models import Room
+
+    room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
+    code = room.code
+    result = svc.leave_room(room, alice)
+    assert result is None
+    assert db.query(Room).filter(Room.code == code).first() is None
+
+
+def test_leave_room_reassigns_host(svc):
+    room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
+    _, bob = svc.join_room(room.code, "Bob")
+    room = svc.leave_room(room, alice)
+    assert room is not None
+    assert room.host_id == bob.id
+    assert bob.is_host is True
+
+
+def test_leave_room_removes_their_votes(svc, db):
+    from app.models import Vote
+
+    room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
+    _, bob = svc.join_room(room.code, "Bob")
+    svc.transition(room, Phase.SUBMISSION)
+    a = svc.add_option(room, alice, "Pizza")
+    svc.transition(room, Phase.VOTING)
+    svc.cast_vote(room, bob, a.id, "eliminate", False)
+    svc.leave_room(room, bob)
+    assert db.query(Vote).filter(Vote.room_id == room.id).count() == 0
+
+
 def test_snapshot_shape(svc):
     room, alice = svc.create_room("Dinner", "iterative_veto", "Alice")
     state = svc.snapshot(room)

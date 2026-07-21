@@ -97,7 +97,11 @@ export function Room() {
         </div>
         <button
           className="btn btn--ghost"
-          onClick={() => { clearSession(upperCode); navigate("/"); }}
+          onClick={() => {
+            api.leaveRoom(upperCode, session.token).catch(() => {});
+            clearSession(upperCode);
+            navigate("/");
+          }}
         >
           Leave
         </button>

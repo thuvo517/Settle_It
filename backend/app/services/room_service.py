@@ -76,6 +76,29 @@ class RoomService:
         self.db.refresh(room)
         return room, user
 
+    def leave_room(self, room: Room, user: User) -> Optional[Room]:
+        """Remove a user from a room. Deletes the room if they were the last
+        one in it, otherwise hands the host role to the next-longest member."""
+        remaining = (
+            self.db.query(User)
+            .filter(User.room_id == room.id, User.id != user.id)
+            .order_by(User.joined_at, User.id)
+            .all()
+        )
+        was_host = user.is_host
+        self.db.delete(user)
+        if not remaining:
+            self.db.delete(room)
+            self.db.commit()
+            return None
+        if was_host:
+            new_host = remaining[0]
+            new_host.is_host = True
+            room.host_id = new_host.id
+        self.db.commit()
+        self.db.refresh(room)
+        return room
+
     # ---- Transitions ----
     def transition(self, room: Room, target: Phase) -> Room:
         if target == Phase.SUBMISSION and room.phase == Phase.LOBBY.value:

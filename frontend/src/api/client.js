@@ -72,6 +72,12 @@ export const api = {
       headers: headers(token),
     }).then(handle),
 
+  leaveRoom: (code, token) =>
+    fetch(`${API_BASE}/api/rooms/${code}/leave`, {
+      method: "POST",
+      headers: headers(token),
+    }).then(handle),
+
   castVote: (code, token, optionId, kind, isDealbreaker) =>
     fetch(`${API_BASE}/api/rooms/${code}/votes`, {
       method: "POST",

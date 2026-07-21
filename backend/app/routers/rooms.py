@@ -63,6 +63,23 @@ async def join_room(code: str, payload: RoomJoin, db: Session = Depends(get_db))
     )
 
 
+@router.post("/{code}/leave")
+async def leave_room(
+    code: str,
+    ctx: Tuple[User, Room] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user, room = ctx
+    if room.code != code.upper():
+        raise HTTPException(status_code=403, detail="Wrong room")
+    svc = _service(db)
+    room_code = room.code
+    remaining_room = svc.leave_room(room, user)
+    if remaining_room is not None:
+        asyncio.create_task(_broadcast_state(room_code, svc, remaining_room))
+    return {"ok": True}
+
+
 @router.get("/{code}", response_model=RoomState)
 def get_room(code: str, db: Session = Depends(get_db)):
     room = db.query(Room).filter(Room.code == code.upper()).first()
