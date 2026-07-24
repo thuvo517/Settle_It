@@ -30,6 +30,20 @@ def test_join_nonexistent_room_404(svc):
     assert exc.value.status_code == 404
 
 
+def test_join_room_rejects_blank_name(svc):
+    room, _ = svc.create_room("Dinner", "iterative_veto", "Alice")
+    with pytest.raises(HTTPException) as exc:
+        svc.join_room(room.code, "   ")
+    assert exc.value.status_code == 400
+
+
+def test_join_room_rejects_duplicate_name(svc):
+    room, _ = svc.create_room("Dinner", "iterative_veto", "Alice")
+    with pytest.raises(HTTPException) as exc:
+        svc.join_room(room.code, "alice")
+    assert exc.value.status_code == 409
+
+
 def test_cannot_join_after_start(svc):
     room, _ = svc.create_room("Dinner", "iterative_veto", "Alice")
     svc.transition(room, Phase.SUBMISSION)

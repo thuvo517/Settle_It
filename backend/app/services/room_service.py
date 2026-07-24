@@ -56,6 +56,10 @@ class RoomService:
         raise HTTPException(status_code=500, detail="Could not allocate room code")
 
     def join_room(self, code: str, name: str) -> Tuple[Room, User]:
+        cleaned = name.strip()
+        if not cleaned:
+            raise HTTPException(status_code=400, detail="Name cannot be blank")
+
         room = self.db.query(Room).filter(Room.code == code.upper()).first()
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
@@ -64,9 +68,17 @@ class RoomService:
         count = self.db.query(User).filter(User.room_id == room.id).count()
         if count >= settings.max_players:
             raise HTTPException(status_code=409, detail="Room is full")
+
+        existing_names = {
+            u.name.strip().lower()
+            for u in self.db.query(User).filter(User.room_id == room.id).all()
+        }
+        if cleaned.lower() in existing_names:
+            raise HTTPException(status_code=409, detail="Name already taken in this room")
+
         user = User(
             room_id=room.id,
-            name=name[:40],
+            name=cleaned[:40],
             session_token=generate_token(),
             is_host=False,
         )
