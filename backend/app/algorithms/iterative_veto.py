@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import DefaultDict, Dict, List, Optional, Set, Tuple
 
+from ..config import settings
 from ..utils.dealbreaker import apply_dealbreakers
 from .base import Algorithm, AlgorithmResult, OptionInput, VoteInput
 
@@ -78,7 +79,9 @@ class IterativeVeto(Algorithm):
                     cumulative_keep[v.option_id] += 1
 
             if round_dealbreaker_pairs:
-                survivors = apply_dealbreakers(list(live_set), round_dealbreaker_pairs)
+                survivors = apply_dealbreakers(
+                    list(live_set), round_dealbreaker_pairs, settings.dealbreaker_threshold
+                )
                 killed = live_set - set(survivors)
                 for oid in killed:
                     eliminated_order.append(oid)

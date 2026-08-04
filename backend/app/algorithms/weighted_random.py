@@ -14,6 +14,7 @@ from __future__ import annotations
 import random
 from typing import List, Optional
 
+from ..config import settings
 from ..utils.dealbreaker import apply_dealbreakers
 from .base import Algorithm, AlgorithmResult, OptionInput, VoteInput
 
@@ -47,7 +48,9 @@ class WeightedRandom(Algorithm):
                 weights[v.option_id] *= 1.25
 
         dealbreaker_pairs = [(v.option_id, v.user_id) for v in votes if v.is_dealbreaker]
-        survivors_ids = apply_dealbreakers([o.id for o in live], dealbreaker_pairs)
+        survivors_ids = apply_dealbreakers(
+            [o.id for o in live], dealbreaker_pairs, settings.dealbreaker_threshold
+        )
         trace.append(f"dealbreaker survivors: {survivors_ids}")
 
         candidates = [oid for oid in survivors_ids if oid in weights]

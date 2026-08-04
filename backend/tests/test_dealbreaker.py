@@ -31,3 +31,12 @@ def test_all_vetoed_equal_counts_returns_all():
 
 def test_empty_options_returns_empty():
     assert apply_dealbreakers([], [(1, 10)]) == []
+
+
+def test_higher_threshold_requires_more_vetoes():
+    # threshold=2 means a single veto isn't enough to eliminate an option
+    result = apply_dealbreakers([1, 2, 3], [(2, 10)], threshold=2)
+    assert result == [1, 2, 3]
+
+    result = apply_dealbreakers([1, 2, 3], [(2, 10), (2, 11)], threshold=2)
+    assert result == [1, 3]

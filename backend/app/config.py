@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     max_players: int = 20
     max_options_per_player: int = 5
     fuzzy_threshold: int = 85
+    dealbreaker_threshold: int = 1
 
 
 settings = Settings()

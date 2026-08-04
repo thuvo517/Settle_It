@@ -14,8 +14,12 @@ from typing import Iterable, List, Tuple
 def apply_dealbreakers(
     option_ids: Iterable[int],
     dealbreaker_votes: Iterable[Tuple[int, int]],  # (option_id, user_id)
+    threshold: int = 1,
 ) -> List[int]:
     """Return surviving option ids after dealbreaker sweep.
+
+    An option is eliminated once it accumulates `threshold` or more distinct
+    dealbreaker votes (default 1, i.e. a single veto is enough).
 
     If applying dealbreakers would eliminate ALL options, we preserve the
     option(s) with the fewest dealbreakers so there is always a winner.
@@ -23,6 +27,9 @@ def apply_dealbreakers(
     option_ids = list(option_ids)
     if not option_ids:
         return []
+
+    if threshold < 1:
+        threshold = 1
 
     counts: Counter[int] = Counter()
     seen: set[Tuple[int, int]] = set()
@@ -33,7 +40,7 @@ def apply_dealbreakers(
         seen.add(key)
         counts[opt_id] += 1
 
-    vetoed = {oid for oid in option_ids if counts.get(oid, 0) > 0}
+    vetoed = {oid for oid in option_ids if counts.get(oid, 0) >= threshold}
     survivors = [oid for oid in option_ids if oid not in vetoed]
     if survivors:
         return survivors

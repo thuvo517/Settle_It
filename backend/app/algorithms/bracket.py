@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from ..config import settings
 from ..utils.dealbreaker import apply_dealbreakers
 from .base import Algorithm, AlgorithmResult, OptionInput, VoteInput
 
@@ -43,7 +44,11 @@ class Bracket(Algorithm):
             return AlgorithmResult(winner_id=None)
 
         dealbreaker_pairs = [(v.option_id, v.user_id) for v in votes if v.is_dealbreaker]
-        surviving_ids = set(apply_dealbreakers([o.id for o in live], dealbreaker_pairs))
+        surviving_ids = set(
+            apply_dealbreakers(
+                [o.id for o in live], dealbreaker_pairs, settings.dealbreaker_threshold
+            )
+        )
         live = [o for o in live if o.id in surviving_ids]
         if not live:
             return AlgorithmResult(winner_id=None)
